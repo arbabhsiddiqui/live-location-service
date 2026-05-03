@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Location Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        const socket = io();
+        // Initialize map with a default view
+        const map = L.map('map').setView([0, 0], 2);
+        const markers = {}; // Store markers by their unique ID (socket.id)
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Listen for updates from Kafka -> Socket.io
+        socket.on('server:location:update', (data) => {
+            const { id, latitude, longitude } = data;
+
+            // Update or Create marker
+            if (markers[id]) {
+                markers[id].setLatLng([latitude, longitude]);
+            } else {
+                const label = id === socket.id ? "You" : `User: ${id.substring(0, 5)}`;
+                markers[id] = L.marker([latitude, longitude])
+                    .addTo(map)
+                    .bindPopup(label);
+
+                // If it's the first time seeing "me", center the map
+                if (id === socket.id) {
+                    map.setView([latitude, longitude], 15);
+                    markers[id].openPopup();
+                }
+            }
+        });
+
+        // Remove marker if a user disconnects (optional, requires server event)
+        socket.on('user:disconnected', (id) => {
+            if (markers[id]) {
+                map.removeLayer(markers[id]);
+                delete markers[id];
+            }
+        });
+
+        // Geolocation Logic
+        if ('geolocation' in navigator) {
+            // watchPosition triggers whenever the GPS/Sensor detects a move
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    console.log("Local move detected:", latitude, longitude);
+
+                    // Send move to Server -> Kafka
+                    socket.emit('client:location:update', { latitude, longitude });
+                },
+                (err) => console.error("Geolocation Error:", err),
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        } else {
+            alert('Geolocation not supported');
+        }
+    </script>
+</body>
+
+</html>

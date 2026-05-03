@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-
+import path from 'node:path';
 export class AuthRouter {
     public router: Router;
     private authController: AuthController;
@@ -30,6 +30,13 @@ export class AuthRouter {
                     <pre>${JSON.stringify((req as any).user, null, 2)}</pre>
                     <a href="/logout">Logout</a>
                 `);
+            }
+        );
+
+        this.router.get('/dashboard',
+            this.authController.authenticate,
+            (req, res) => {
+                res.sendFile(path.resolve(__dirname, '../../../public/index.html'));
             }
         );
     }
