@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: live_location_app
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      # - pnpm-store:/pnpm/store
+      # - /app/node_modules
+    environment:
+      DATABASE_URL: postgres://admin:admin@postgres:5432/live_location_app_db
+    depends_on:
+      - postgres
+    networks:
+      - app_network
+    command: tail -f /dev/null
+
+  postgres:
+    image: postgres:17
+    container_name: live_location_db
+    restart: unless-stopped
+    ports:
+      - "5446:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: live_location_app_db
+    volumes:
+      - pgdatalivelocationappdb:/var/lib/postgresql/data
+
+networks:
+  app_network:
+    name: oidc-auth-ts_app_network
+    external: true
+
+volumes:
+  pgdatalivelocationappdb:
+  # pnpm-store:
